@@ -120,7 +120,6 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 
 	// map model name
 	isModelMapped := false
-	raw := false
 	modelMapping := c.GetString("model_mapping")
 	mapped, err := mapModel(textRequest.Model, modelMapping)
 	if err != nil {
