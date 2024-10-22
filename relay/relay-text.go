@@ -148,7 +148,7 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 
 	promptTokens, err := getPromptTokens(textRequest, relayInfo)
 	// count messages token error 计算promptTokens错误
-	if err != nil {
+	if err != nil && !relayInfo.Raw {
 		return service.OpenAIErrorWrapper(err, "count_token_messages_failed", http.StatusInternalServerError)
 	}
 
@@ -258,9 +258,7 @@ func getPromptTokens(textRequest *dto.GeneralOpenAIRequest, info *relaycommon.Re
 	case relayconstant.RelayModeEmbeddings:
 		promptTokens, err = service.CountTokenInput(textRequest.Input, textRequest.Model)
 	default:
-		if !info.Raw {
-			err = errors.New("unknown relay mode")	
-		}
+		err = errors.New("unknown relay mode")	
 		promptTokens = 0
 	}
 	info.PromptTokens = promptTokens
