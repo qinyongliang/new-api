@@ -129,7 +129,7 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 	if mapped != nil {
 		isModelMapped = true
 		textRequest.Model = mapped.name
-		raw = mapped.raw
+		relayInfo.Raw = mapped.raw
 	}
 	relayInfo.UpstreamModelName = textRequest.Model
 	modelPrice, getModelPriceSuccess := common.GetModelPrice(textRequest.Model, false)
@@ -200,7 +200,7 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 	adaptor.Init(relayInfo)
 	var requestBody io.Reader
 
-	if raw || (relayInfo.ChannelType == common.ChannelTypeOpenAI && !isModelMapped) {
+	if relayInfo.Raw || (relayInfo.ChannelType == common.ChannelTypeOpenAI && !isModelMapped) {
 		body, err := common.GetRequestBody(c)
 		if err != nil {
 			return service.OpenAIErrorWrapperLocal(err, "get_request_body_failed", http.StatusInternalServerError)
@@ -259,7 +259,9 @@ func getPromptTokens(textRequest *dto.GeneralOpenAIRequest, info *relaycommon.Re
 	case relayconstant.RelayModeEmbeddings:
 		promptTokens, err = service.CountTokenInput(textRequest.Input, textRequest.Model)
 	default:
-		err = errors.New("unknown relay mode")
+		if !info.Raw {
+			err = errors.New("unknown relay mode")	
+		}
 		promptTokens = 0
 	}
 	info.PromptTokens = promptTokens
