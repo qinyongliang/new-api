@@ -43,11 +43,12 @@ func mapModel(model string, modelMapping string) (*ModelMapping, error) {
 	for key, value := range modelMap {
 		raw := false
 		pattern = key
+		replace = key
 		switch v := value.(type) {
 			case string:
 				replace = v
 			case map[string]interface{}:
-				replace = v["name"].(string)
+				replace, _ = v["name"].(string)
 				raw, _ = v["raw"].(bool) // 默认为 false
 			default:
 				continue
