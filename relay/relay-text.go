@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"io"
 	"math"
 	"net/http"
@@ -21,6 +22,47 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type ModelMapping struct {
+	name string `json:"name"`
+	//使用原始请求
+	raw  bool   `json:"raw"`
+}
+
+func mapModel(model string, modelMapping string) (*ModelMapping, error) {
+	if modelMapping == "" || modelMapping == "{}" {
+	 return nil, nil
+	}
+   
+	var modelMap map[string]interface{}
+	err := json.Unmarshal([]byte(modelMapping), &modelMap)
+	if err != nil {
+	 return nil, errors.New("unmarshal_model_mapping_failed")
+	}
+	var pattern, replace string
+	for key, value := range modelMap {
+		raw := false
+		pattern = key
+		switch v := value.(type) {
+			case string:
+				replace = v
+			case map[string]interface{}:
+				replace = v["name"].(string)
+				raw, _ = v["raw"].(bool) // 默认为 false
+			default:
+				continue
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, errors.New("invalid_regex_pattern")
+		}
+
+		if re.MatchString(model) {
+			return &ModelMapping{ name: re.ReplaceAllString(model, replace), raw: raw}, nil
+		}
+	}
+	return nil, nil
+}
 
 func getAndValidateTextRequest(c *gin.Context, relayInfo *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
 	textRequest := &dto.GeneralOpenAIRequest{}
@@ -77,20 +119,16 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 
 	// map model name
 	isModelMapped := false
+	raw := false
 	modelMapping := c.GetString("model_mapping")
-	//isModelMapped := false
-	if modelMapping != "" && modelMapping != "{}" {
-		modelMap := make(map[string]string)
-		err := json.Unmarshal([]byte(modelMapping), &modelMap)
-		if err != nil {
-			return service.OpenAIErrorWrapperLocal(err, "unmarshal_model_mapping_failed", http.StatusInternalServerError)
-		}
-		if modelMap[textRequest.Model] != "" {
-			isModelMapped = true
-			textRequest.Model = modelMap[textRequest.Model]
-			// set upstream model name
-			//isModelMapped = true
-		}
+	mapped, err := mapModel(textRequest.Model, modelMapping)
+	if err != nil {
+		return service.OpenAIErrorWrapperLocal(err, "mapping_model_error", http.StatusBadRequest)
+	}
+	if mapped != nil {
+		isModelMapped = true
+		textRequest.Model = mapped.name
+		raw = mapped.raw
 	}
 	relayInfo.UpstreamModelName = textRequest.Model
 	modelPrice, getModelPriceSuccess := common.GetModelPrice(textRequest.Model, false)
@@ -161,7 +199,7 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 	adaptor.Init(relayInfo)
 	var requestBody io.Reader
 
-	if relayInfo.ChannelType == common.ChannelTypeOpenAI && !isModelMapped {
+	if raw || (relayInfo.ChannelType == common.ChannelTypeOpenAI && !isModelMapped) {
 		body, err := common.GetRequestBody(c)
 		if err != nil {
 			return service.OpenAIErrorWrapperLocal(err, "get_request_body_failed", http.StatusInternalServerError)
