@@ -27,6 +27,7 @@ type ModelMapping struct {
 	name string `json:"name"`
 	//使用原始请求
 	raw  bool   `json:"raw"`
+	assistant bool `json:"assistant"`
 }
 
 func mapModel(model string, modelMapping string) (*ModelMapping, error) {
@@ -42,6 +43,7 @@ func mapModel(model string, modelMapping string) (*ModelMapping, error) {
 	var pattern, replace string
 	for key, value := range modelMap {
 		raw := false
+		assistant := false
 		pattern = key
 		replace = key
 		switch v := value.(type) {
@@ -50,6 +52,7 @@ func mapModel(model string, modelMapping string) (*ModelMapping, error) {
 			case map[string]interface{}:
 				replace, _ = v["name"].(string)
 				raw, _ = v["raw"].(bool) // 默认为 false
+				assistant, _ = v["assistant"].(bool) // 默认为 false
 			default:
 				continue
 		}
@@ -59,7 +62,7 @@ func mapModel(model string, modelMapping string) (*ModelMapping, error) {
 		}
 
 		if re.MatchString(model) {
-			return &ModelMapping{ name: re.ReplaceAllString(model, replace), raw: raw}, nil
+			return &ModelMapping{ name: re.ReplaceAllString(model, replace), raw: raw, assistant: assistant}, nil
 		}
 	}
 	return nil, nil
@@ -129,6 +132,7 @@ func TextHelper(c *gin.Context) *dto.OpenAIErrorWithStatusCode {
 		isModelMapped = true
 		textRequest.Model = mapped.name
 		relayInfo.Raw = mapped.raw
+		relayInfo.Assistant = mapped.assistant
 	}
 	relayInfo.UpstreamModelName = textRequest.Model
 	modelPrice, getModelPriceSuccess := common.GetModelPrice(textRequest.Model, false)

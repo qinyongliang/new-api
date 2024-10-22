@@ -33,6 +33,7 @@ type RelayInfo struct {
 	SupportStreamOptions bool
 	ShouldIncludeUsage   bool
 	Raw                  bool
+	Assistant			 bool
 }
 
 func GenRelayInfo(c *gin.Context) *RelayInfo {

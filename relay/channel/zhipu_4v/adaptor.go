@@ -29,6 +29,9 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if info.Assistant {
+		return fmt.Sprintf("%s/api/paas/v4/assistant", info.BaseUrl), nil	
+	}
 	return fmt.Sprintf("%s/api/paas/v4/chat/completions", info.BaseUrl), nil
 }
 
