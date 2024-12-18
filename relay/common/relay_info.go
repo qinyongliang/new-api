@@ -1,17 +1,21 @@
 package common
 
 import (
-	"github.com/gin-gonic/gin"
 	"one-api/common"
+	"one-api/dto"
 	"one-api/relay/constant"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 type RelayInfo struct {
 	ChannelType          int
 	ChannelId            int
 	TokenId              int
+	TokenKey             string
 	UserId               int
 	Group                string
 	TokenUnlimited       bool
@@ -21,6 +25,7 @@ type RelayInfo struct {
 	ApiType              int
 	IsStream             bool
 	IsPlayground         bool
+	UsePrice             bool
 	RelayMode            int
 	UpstreamModelName    string
 	OriginModelName      string
@@ -32,15 +37,34 @@ type RelayInfo struct {
 	BaseUrl              string
 	SupportStreamOptions bool
 	ShouldIncludeUsage   bool
+	ClientWs             *websocket.Conn
+	TargetWs             *websocket.Conn
+	InputAudioFormat     string
+	OutputAudioFormat    string
+	RealtimeTools        []dto.RealTimeTool
+	IsFirstRequest       bool
+	AudioUsage           bool
+	ChannelSetting       map[string]interface{}
 	Raw                  bool
-	Assistant			 bool
+    Assistant			 bool
+}
+
+func GenRelayInfoWs(c *gin.Context, ws *websocket.Conn) *RelayInfo {
+	info := GenRelayInfo(c)
+	info.ClientWs = ws
+	info.InputAudioFormat = "pcm16"
+	info.OutputAudioFormat = "pcm16"
+	info.IsFirstRequest = true
+	return info
 }
 
 func GenRelayInfo(c *gin.Context) *RelayInfo {
 	channelType := c.GetInt("channel_type")
 	channelId := c.GetInt("channel_id")
+	channelSetting := c.GetStringMap("channel_setting")
 
 	tokenId := c.GetInt("token_id")
+	tokenKey := c.GetString("token_key")
 	userId := c.GetInt("id")
 	group := c.GetString("group")
 	tokenUnlimited := c.GetBool("token_unlimited_quota")
@@ -56,6 +80,7 @@ func GenRelayInfo(c *gin.Context) *RelayInfo {
 		ChannelType:       channelType,
 		ChannelId:         channelId,
 		TokenId:           tokenId,
+		TokenKey:          tokenKey,
 		UserId:            userId,
 		Group:             group,
 		TokenUnlimited:    tokenUnlimited,
@@ -67,6 +92,7 @@ func GenRelayInfo(c *gin.Context) *RelayInfo {
 		ApiVersion:        c.GetString("api_version"),
 		ApiKey:            strings.TrimPrefix(c.Request.Header.Get("Authorization"), "Bearer "),
 		Organization:      c.GetString("channel_organization"),
+		ChannelSetting:    channelSetting,
 	}
 	if strings.HasPrefix(c.Request.URL.Path, "/pg") {
 		info.IsPlayground = true

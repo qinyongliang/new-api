@@ -170,6 +170,10 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		abortWithOpenAiMessage(c, http.StatusBadRequest, "无效的请求, "+err.Error())
 		return nil, false, errors.New("无效的请求, " + err.Error())
 	}
+	if strings.HasPrefix(c.Request.URL.Path, "/v1/realtime") {
+		//wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01
+		modelRequest.Model = c.Query("model")
+	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/moderations") {
 		if modelRequest.Model == "" {
 			modelRequest.Model = "text-moderation-stable"
@@ -209,6 +213,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	c.Set("channel_id", channel.Id)
 	c.Set("channel_name", channel.Name)
 	c.Set("channel_type", channel.Type)
+	c.Set("channel_setting", channel.GetSetting())
 	if nil != channel.OpenAIOrganization && "" != *channel.OpenAIOrganization {
 		c.Set("channel_organization", *channel.OpenAIOrganization)
 	}
